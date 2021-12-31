@@ -1,0 +1,44 @@
+#!/bin/sh
+
+[ -z $(which jq) ] && printf "isbn: I require jq(1) to work, but I can't find it on your system!\n" && exit
+
+baseurl=https://www.googleapis.com/books/v1/volumes?q=isbn:
+
+resultstring=$(curl -s $baseurl$1 | jq -jr '.items[].volumeInfo.authors[], "\t", .items[].volumeInfo.title, "\t", .items[].volumeInfo.publisher, "\t", .items[].volumeInfo.publishedDate' | sed -e 's/\n/\t/g')
+
+author=$(echo "$resultstring" | cut -f1)
+title=$(echo "$resultstring" | cut -f2)
+publisher=$(echo "$resultstring" | cut -f3)
+year=$(echo "$resultstring" | cut -f4 | head -c4)
+
+emitbibtex() {
+cat << EOF
+@book{$(echo "$title" | tr [:upper:] [:lower:] | sed -e 's/ /-/g')
+author="$author"
+title="$title"
+publisher="$publisher"
+year="$year"
+}
+EOF
+}
+
+emitsimple() {
+cat << EOF
+title: $title
+author: $author
+publisher: $publisher
+date: $(echo "$resultstring" | cut -f4)
+EOF
+}
+
+case "$#" in
+	0) printf "isbn: no argument specified.\n" & exit ;;
+	1) ;;
+	2) ;;
+	*) printf "isbn: too many arguments!\n" & exit ;;
+esac
+
+case "$2" in
+	-b|--bibtex) emitbibtex ;;
+	*) emitsimple ;;
+esac
